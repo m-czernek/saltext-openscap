@@ -1,9 +1,11 @@
 import subprocess
+from unittest.mock import MagicMock
+from unittest.mock import Mock
+from unittest.mock import patch
 
 import pytest
 
-import salt.modules.openscap as openscap
-from tests.support.mock import MagicMock, Mock, patch
+from saltext.openscap.modules import openscap
 
 
 @pytest.fixture
@@ -12,12 +14,15 @@ def policy_file():
 
 
 @pytest.fixture
-def configure_loader_modules(tmp_path):
+def configure_loader_modules():
     return {
         openscap: {
             "__salt__": MagicMock(),
         }
     }
+
+
+setattr(configure_loader_modules, "_pytestfixturefunction", True)
 
 
 def test_openscap_xccdf_eval_success(policy_file, tmp_path):
@@ -67,9 +72,7 @@ def test_openscap_xccdf_eval_success_with_failing_rules(policy_file, tmp_path):
     mock_mkdtemp = Mock(return_value=str(tmp_path))
     patch_mkdtemp = patch("tempfile.mkdtemp", mock_mkdtemp)
     mock_popen = MagicMock(
-        return_value=Mock(
-            **{"returncode": 2, "communicate.return_value": ("", "some error")}
-        )
+        return_value=Mock(**{"returncode": 2, "communicate.return_value": ("", "some error")})
     )
     patch_popen = patch.object(openscap, "Popen", mock_popen)
     with patch_popen, patch_mkdtemp, patch_rmtree as mock_rmtree:
@@ -122,11 +125,9 @@ def test_openscap_xccdf_eval_success_ignore_unknown_params(tmp_path):
     mock_mkdtemp = Mock(return_value=str(tmp_path))
     patch_mkdtemp = patch("tempfile.mkdtemp", mock_mkdtemp)
     mock_popen = MagicMock(
-        return_value=Mock(
-            **{"returncode": 2, "communicate.return_value": ("", "some error")}
-        )
+        return_value=Mock(**{"returncode": 2, "communicate.return_value": ("", "some error")})
     )
-    patch_popen = patch("salt.modules.openscap.Popen", mock_popen)
+    patch_popen = patch("saltext.openscap.modules.openscap.Popen", mock_popen)
     with patch_popen, patch_mkdtemp:
         response = openscap.xccdf("eval --profile Default --param Default /policy/file")
         expected = {
@@ -166,7 +167,7 @@ def test_openscap_xccdf_eval_evaluation_error(policy_file):
             }
         )
     )
-    patch_popen = patch("salt.modules.openscap.Popen", mock_popen)
+    patch_popen = patch("saltext.openscap.modules.openscap.Popen", mock_popen)
     with patch_popen:
         response = openscap.xccdf(f"eval --profile Default {policy_file}")
         expected = {
@@ -199,7 +200,7 @@ def test_openscap_xccdf_eval_evaluation_unknown_error(policy_file):
             }
         )
     )
-    patch_popen = patch("salt.modules.openscap.Popen", mock_popen)
+    patch_popen = patch("saltext.openscap.modules.openscap.Popen", mock_popen)
     with patch_popen:
         response = openscap.xccdf(f"eval --profile Default {policy_file}")
         expected = {

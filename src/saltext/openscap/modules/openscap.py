@@ -7,7 +7,8 @@ import argparse
 import shlex
 import shutil
 import tempfile
-from subprocess import PIPE, Popen
+from subprocess import PIPE
+from subprocess import Popen
 
 _XCCDF_MAP = {
     "eval": {
@@ -22,13 +23,14 @@ _XCCDF_MAP = {
 
 
 class _ArgumentParser(argparse.ArgumentParser):
-    def __init__(self, action=None, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, prog="oscap", **kwargs)
         self.add_argument("action", choices=["eval"])
         for params, kwparams in _XCCDF_MAP["eval"]["parser_arguments"]:
             self.add_argument(*params, **kwparams)
 
     def error(self, message, *args, **kwargs):
+        # pylint: disable-next=broad-exception-raised
         raise Exception(message)
 
 
@@ -66,7 +68,7 @@ def xccdf(params):
     try:
         parser = _ArgumentParser()
         action = parser.parse_known_args(params)[0].action
-        args, argv = _ArgumentParser(action=action).parse_known_args(args=params)
+        args, _ = _ArgumentParser().parse_known_args(args=params)
     except Exception as err:  # pylint: disable=broad-except
         success = False
         error = str(err)
@@ -74,8 +76,9 @@ def xccdf(params):
     if success:
         cmd = _XCCDF_MAP[action]["cmd_pattern"].format(args.profile, policy)
         tempdir = tempfile.mkdtemp()
+        # pylint: disable-next=consider-using-with
         proc = Popen(shlex.split(cmd), stdout=PIPE, stderr=PIPE, cwd=tempdir)
-        (stdoutdata, error) = proc.communicate()
+        (_, error) = proc.communicate()
         returncode = proc.returncode
         success = _OSCAP_EXIT_CODES_MAP.get(returncode, False)
         if success:
@@ -83,6 +86,4 @@ def xccdf(params):
             shutil.rmtree(tempdir, ignore_errors=True)
             upload_dir = tempdir
 
-    return dict(
-        success=success, upload_dir=upload_dir, error=error, returncode=returncode
-    )
+    return {"success": success, "upload_dir": upload_dir, "error": error, "returncode": returncode}
